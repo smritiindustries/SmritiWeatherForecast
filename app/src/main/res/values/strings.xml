@@ -1,3 +1,6 @@
 <resources>
     <string name="app_name">SmritiWeatherForecast</string>
+    <string name="weather_fetch_msg">Fetching weather details...</string>
+    <string name="weather_forecast_msg">Fetching 5 days data...</string>
+    <string name="city_name_blank">City Name required</string>
 </resources>

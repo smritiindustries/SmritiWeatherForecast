@@ -1,68 +1,97 @@
 package com.smritiweatherforecast.AsyncTask;
 
+import android.app.Activity;
 import android.app.ProgressDialog;
-import android.content.Context;
 import android.os.AsyncTask;
 
-import com.smritiweatherforecast.Data.Constants;
+import com.smritiweatherforecast.R;
 import com.smritiweatherforecast.listener.DataLoaderListener;
-import com.smritiweatherforecast.model.Weather;
+import com.smritiweatherforecast.parser.JSONParser;
+
+import org.json.JSONException;
 
 /**
  * Created by Piyush on 6/27/2017.
  */
-public class DataLoader extends AsyncTask<String, Void, Weather> {
-    String serviceType;
-    WeatherHttpClient networkHandler;
+public class DataLoader extends AsyncTask<Object, String, Object> {
+
+    public static final byte ACTION_GET_WEATHER = 0;
+    public static final byte ACTION_GET_WEATHER_FORECAST_DATA = 1;
+    WeatherHttpClient weatherHttpClient;
     private DataLoaderListener listener;
     private ProgressDialog progressDialog;
-    private Context context;
+    private Activity mActivity;
+    private byte action;
 
-    public DataLoader(Context context, String service) {
-        this.context = context;
-        this.listener = (DataLoaderListener) context;
-        this.serviceType = service;
-        networkHandler = new WeatherHttpClient();
+    public DataLoader(Activity activity, byte action) {
+        mActivity = activity;
+        this.listener = (DataLoaderListener) mActivity;
+        weatherHttpClient = new WeatherHttpClient();
+        this.action = action;
     }
 
     @Override
     protected void onPreExecute() {
 
-        progressDialog = new ProgressDialog(context);
+        progressDialog = new ProgressDialog(mActivity);
+        String loadingMsg = "";
+        switch (action) {
+            case ACTION_GET_WEATHER:
+                loadingMsg = mActivity.getString(R.string.weather_fetch_msg);
+                break;
+            case ACTION_GET_WEATHER_FORECAST_DATA:
+                loadingMsg = mActivity.getString(R.string.weather_forecast_msg);
+                break;
+        }
+        progressDialog.setMessage(loadingMsg);
         progressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
         progressDialog.setCancelable(false);
-
-        if (serviceType.equals(Constants.SERVICE_FETCH)) {
-            progressDialog.setMessage("Fetching data...");
-        }
         progressDialog.show();
         super.onPreExecute();
     }
 
     @Override
-    protected Weather doInBackground(String... params) {
-        String result = null;
-        this.serviceType = params[0];
-        if (serviceType.equalsIgnoreCase(Constants.SERVICE_FETCH)) {
-            try {
-                // result =  getWeatherForecastData(params[1]);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+    protected Object doInBackground(Object... arg) {
+        Object resultDataObject = null;
+        String response = "";
+        action = (Byte) arg[0];
+        switch (action) {
+            case ACTION_GET_WEATHER:
+                response = weatherHttpClient.getWeatherData((String) arg[1]);
+                try {
+                    resultDataObject = JSONParser.getWeather(response);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                break;
+            case ACTION_GET_WEATHER_FORECAST_DATA:
+                response = weatherHttpClient.getForecastWeatherData((String) arg[1], (String) arg[2]);
+                try {
+                    resultDataObject = JSONParser.getForecastWeather(response);
+                } catch (JSONException e) {
+                    e.printStackTrace();
+                }
+                break;
         }
-        return null;
+        return resultDataObject;
     }
 
     @Override
-    protected void onPostExecute(Weather result) {
-        progressDialog.dismiss();
-        progressDialog = null;
-        if (serviceType.equals(Constants.SERVICE_FETCH)) {
-            if (result.equals("success")) {
-                listener.onTaskComplete(result, Constants.SERVICE_FETCH);
-            }
+    protected void onPostExecute(Object result) {
+        switch (action) {
+            case ACTION_GET_WEATHER:
+                listener.onDataLoaded(action, result);
+                break;
+            case ACTION_GET_WEATHER_FORECAST_DATA:
+                listener.onDataLoaded(action, result);
+                break;
         }
-
-        super.onPostExecute(result);
+        try {
+            progressDialog.dismiss();
+            progressDialog = null;
+            super.onPostExecute(result);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
